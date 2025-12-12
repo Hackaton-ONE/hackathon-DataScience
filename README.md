@@ -4,7 +4,7 @@
 
 Este projeto contém uma **API de Análise de Sentimento** em português, construída com **FastAPI** e utilizando um modelo treinado com **TF-IDF + Naive Bayes**, salvo em `joblib`.
 
-A API recebe um texto e retorna a **classificação de sentimento** (positivo/negativo/neutro) e a **probabilidade associada**.
+A API recebe um texto e retorna a **classificação de sentimento** (positivo/negativo) e a **probabilidade associada**.
 
 ---
 
