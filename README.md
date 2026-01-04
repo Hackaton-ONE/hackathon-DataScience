@@ -35,7 +35,7 @@ api/
 │   ├── sentiment_pt.joblib
 │   └── sentiment_es.joblib
 ├── notebooks/ # Notebook de treino em PT e ES
-│   ├── notebook_es.ipynb
+│   ├── notebook_pt.ipynb
 │   └── notebook_es.ipynb
 ├── requirements.txt # Dependências da API
 README.md # Documentação
