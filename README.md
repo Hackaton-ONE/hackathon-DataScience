@@ -75,8 +75,6 @@ cd hackathon-DataScience
 pip install -r requirements.txt
 ```
 
----
-
 ## Executar a API
 ```
 uvicorn main:app --reload
