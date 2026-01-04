@@ -1,104 +1,204 @@
 # hackathon-DataScience
 
-# API de Análise de Sentimento (Português)
+# API de Análise de Sentimento (PT + ES)
 
-Este projeto contém uma **API de Análise de Sentimento** em português, construída com **FastAPI** e utilizando um modelo treinado com **TF-IDF + Naive Bayes**, salvo em `joblib`.
+API de Análise de Sentimentos desenvolvida como MVP para hackathon, com foco em integração entre Data Science e Back-End.
 
-A API recebe um texto e retorna a **classificação de sentimento** (positivo/negativo) e a **probabilidade associada**.
-
----
-
-## 1. Funcionalidades
-
-- Classificação automática de sentimento em PT-BR  
-- Limpeza de texto (normalização, remoção de links, moedas, símbolos etc.)  
-- API FastAPI com documentação automática  
-- Carregamento de modelo `.joblib`  
-- Testes simples em Doc UI / cURL 
+A aplicação classifica textos como Positivo ou Negativo, com suporte a Português e Espanhol, aceitando JSON ou CSV, inclusive arquivos grandes via processamento assíncrono e streaming.
 
 ---
 
-## 2. Estrutura do Projeto
+## Funcionalidades
+
+- Classificação de sentimento (Positivo / Negativo)
+
+- Suporte multilíngue: Português (PT) e Espanhol (ES)
+
+- Um único endpoint para JSON e CSV
+
+- Processamento em lote (batch)
+
+- Streaming assíncrono (ideal para arquivos grandes)
+
+- Limpeza automática de texto
+
+- Modelos leves (≈ 9 MB) carregados uma única vez
+
+---
+
+## Estrutura do Projeto
 ```
 hackathon-DataScience/
-├── app.py # API FastAPI
-├── modelo_sentimento_pt.joblib # Modelo treinado
-├── model_pt.ipynb # Notebook de treino
+api/
+├── main.py # API FastAPI
+├── model/ # Modelo treinado em PT e ES
+│   ├── sentiment_pt.joblib
+│   └── sentiment_es.joblib
+├── notebooks/ # Notebook de treino em PT e ES
+│   ├── notebook_es.ipynb
+│   └── notebook_es.ipynb
 ├── requirements.txt # Dependências da API
-└── README.md # Documentação
+README.md # Documentação
 ```
 
 ---
 
-## 3. Pré-requisitos
+## Tecnologias utilizadas
 
-- Python 3.9+
-- pip atualizado
-- (Opcional, recomendado) Virtualenv
+- Python 3.12
+
+- FastAPI
+
+- scikit-learn
+
+- Pandas
+
+- Joblib
+
+- langdetect
+
+- Uvicorn
 
 ---
 
-## 4. Instalação Local
+## Instalação e execução
 
-### 1. Clonar o repositório
+### Clonar o repositório
 ```bash
 git clone https://github.com/Hackaton-ONE/hackathon-DataScience.git
 cd hackathon-DataScience
 ```
 
-### 2. Criar ambiente virtual (opcional)
-```
-python -m venv venv
-venv\Scripts\activate          # Windows
-# ou
-source venv/bin/activate      # Linux/Mac
-```
 
-### 3. Instalar dependências
+### Instalar dependências
 ```
 pip install -r requirements.txt
 ```
 
 ---
 
-## 5. Executar a API
+## Executar a API
 ```
-uvicorn app:app --reload
+uvicorn main:app --reload
 ```
-A API ficará disponível em:
+Acesse a documentação interativa:
 
-http://127.0.0.1:8000
+[http://127.0.0.1:8000](http://localhost:8000/docs)
 
 ---
 
-## 6. Testando a API
+## Endpoint principal
 
-### Testar pelo Swagger 
-1. Acesse:
---> http://127.0.0.1:8000/docs
+### POST /sentiment/analyze
 
-2. Abra o endpoint POST /predict
+Este endpoint aceita JSON ou CSV e retorna o resultado no mesmo formato.
 
-3. Envie algo como:
+---
+## Exemplos de uso
+
+### JSON (single) 
+
 ```
+POST /sentiment/analyze
 {
-"text": "Eu amei esse produto!"
+  "text": "O atendimento foi excelente",
+  "lang": "pt"
 }
 ```
 
-### Testar via cURL
-```
-curl -X POST "http://127.0.0.1:8000/predict" \
-     -H "Content-Type: application/json" \
-     -d "{\"text\": \"O atendimento foi horrível\"}"
+Resposta:
+
 ```
 
----
-
-## 7. Exemplo de Resposta da API
-```
 {
+  "idioma": "pt",
   "previsao": "Positivo",
-  "probabilidade": 0.8735
+  "probabilidade": 0.93
+}
+
+```
+---
+
+### JSON (batch) 
+
+```
+POST /sentiment/analyze
+{
+  "texts": [
+    "Produto excelente",
+    "Péssimo atendimento",
+    "El servicio fue horrible"
+  ]
 }
 ```
+
+Resposta:
+
+```
+
+[
+  {"idioma":"pt","previsao":"Positivo","probabilidade":0.95},
+  {"idioma":"pt","previsao":"Negativo","probabilidade":0.91},
+  {"idioma":"es","previsao":"Negativo","probabilidade":0.92}
+]
+
+```
+
+---
+### CSV (upload + download)
+
+Arquivo de entrada (comentarios.csv)
+
+```
+text
+Produto excelente
+Péssimo atendimento
+El producto llegó tarde
+```
+
+Requisição:
+
+```
+curl -X POST "http://localhost:8000/sentiment/analyze?lang=auto" \
+  -F "file=@comentarios.csv" \
+  --output resultado.csv
+```
+
+Arquivo de saída (resultado.csv)
+
+```
+text,idioma,previsao,probabilidade
+Produto excelente,pt,Positivo,0.96
+Péssimo atendimento,pt,Negativo,0.91
+El producto llegó tarde,es,Negativo,0.88
+```
+
+---
+
+## Modelos de Machine Learning
+
+-- Técnica: TF-IDF + Logistic Regression
+
+-- Treinados separadamente para PT e ES
+
+-- Serializados com joblib
+
+-- Otimizados para baixa latência em API
+
+## Validações implementadas
+
+-- Verificação de formato (JSON / CSV)
+
+-- Validação da coluna text em CSV
+
+-- Checagem de texto mínimo
+
+-- Tratamento de erros amigável
+
+## Escalabilidade
+
+-- Processamento assíncrono
+
+-- Streaming linha a linha para CSVs grandes
+
+-- Arquitetura preparada para persistência e métricas
