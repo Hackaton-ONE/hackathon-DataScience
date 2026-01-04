@@ -197,8 +197,8 @@ El producto llegó tarde,es,Negativo,0.88
 
 ## Escalabilidade
 
--- Processamento assíncrono
+- Processamento assíncrono
 
--- Streaming linha a linha para CSVs grandes
+- Streaming linha a linha para CSVs grandes
 
--- Arquitetura preparada para persistência e métricas
+- Arquitetura preparada para persistência e métricas
