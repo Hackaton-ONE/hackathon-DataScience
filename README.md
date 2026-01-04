@@ -177,23 +177,23 @@ El producto llegó tarde,es,Negativo,0.88
 
 ## Modelos de Machine Learning
 
--- Técnica: TF-IDF + Logistic Regression
+- Técnica: TF-IDF + Logistic Regression
 
--- Treinados separadamente para PT e ES
+- Treinados separadamente para PT e ES
 
--- Serializados com joblib
+- Serializados com joblib
 
--- Otimizados para baixa latência em API
+- Otimizados para baixa latência em API
 
 ## Validações implementadas
 
--- Verificação de formato (JSON / CSV)
+- Verificação de formato (JSON / CSV)
 
--- Validação da coluna text em CSV
+- Validação da coluna text em CSV
 
--- Checagem de texto mínimo
+- Checagem de texto mínimo
 
--- Tratamento de erros amigável
+- Tratamento de erros amigável
 
 ## Escalabilidade
 
