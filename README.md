@@ -2,27 +2,22 @@
 
 # API de Análise de Sentimento (PT + ES)
 
-API de Análise de Sentimentos desenvolvida como MVP para hackathon, com foco em integração entre Data Science e Back-End.
+API de Análise de Sentimentos desenvolvida como **MVP para hackathon**, com foco em **integração entre Data Science e Back-End**, **alto desempenho** e **processamento em lote**.
 
-A aplicação classifica textos como Positivo ou Negativo, com suporte a Português e Espanhol, aceitando JSON ou CSV, inclusive arquivos grandes via processamento assíncrono e streaming.
+A aplicação classifica textos como **Positivo** ou **Negativo**, com suporte a **Português (PT)** e **Espanhol (ES)**, aceitando **JSON ou CSV**, inclusive arquivos grandes via **batch prediction** e **streaming assíncrono**.
 
 ---
 
-## Funcionalidades
+## Principais características
 
 - Classificação de sentimento (Positivo / Negativo)
-
-- Suporte multilíngue: Português (PT) e Espanhol (ES)
-
-- Um único endpoint para JSON e CSV
-
-- Processamento em lote (batch)
-
-- Streaming assíncrono (ideal para arquivos grandes)
-
-- Limpeza automática de texto
-
-- Modelos leves (≈ 9 MB) carregados uma única vez
+- Suporte multilíngue: **Português (PT)** e **Espanhol (ES)**
+- **Um único endpoint** para JSON e CSV
+- **Batch prediction** (máximo desempenho)
+- **Streaming assíncrono** (ideal para arquivos grandes)
+- Modelos **leves (~9 MB)** carregados **uma única vez**
+- Baixa latência e alta previsibilidade
+- Código simples, limpo e pronto para produção
 
 ---
 
@@ -31,13 +26,13 @@ A aplicação classifica textos como Positivo ou Negativo, com suporte a Portugu
 hackathon-DataScience/
 api/
 ├── main.py # API FastAPI
-├── model/ # Modelo treinado em PT e ES
-│   ├── sentiment_pt.joblib
-│   └── sentiment_es.joblib
-├── notebooks/ # Notebook de treino em PT e ES
-│   ├── notebook_pt.ipynb
-│   └── notebook_es.ipynb
-├── requirements.txt # Dependências da API
+├── model/ # Modelos treinados
+│ ├── sentiment_pt.joblib
+│ └── sentiment_es.joblib
+├── notebooks/ # Notebooks de treino
+│ ├── notebook_pt.ipynb
+│ └── notebook_es.ipynb
+├── requirements.txt # Dependências
 README.md # Documentação
 ```
 
@@ -45,30 +40,30 @@ README.md # Documentação
 
 ## Tecnologias utilizadas
 
-- Python 3.12
-
+- Python 3.11+
 - FastAPI
-
 - scikit-learn
-
 - Pandas
-
 - Joblib
-
-- langdetect
-
 - Uvicorn
 
 ---
 
-## Instalação e execução
+## ⚙️ Instalação e execução
 
 ### Clonar o repositório
+
 ```bash
 git clone https://github.com/Hackaton-ONE/hackathon-DataScience.git
-cd hackathon-DataScience
+cd hackathon-DataScience/api
 ```
 
+## Criar ambiente virtual (opcional, recomendado)
+
+```
+python -m venv venv
+venv\Scripts\activate  # Windows
+```
 
 ### Instalar dependências
 ```
@@ -90,6 +85,14 @@ Acesse a documentação interativa:
 ### POST /sentiment/analyze
 
 Este endpoint aceita JSON ou CSV e retorna o resultado no mesmo formato.
+
+O idioma pode ser definido via query param:
+
+```
+?lang=pt
+?lang=es
+```
+Caso não seja informado, o idioma padrão é Português (pt).
 
 ---
 ## Exemplos de uso
@@ -121,13 +124,16 @@ Resposta:
 
 ```
 POST /sentiment/analyze
+
 {
   "texts": [
     "Produto excelente",
     "Péssimo atendimento",
-    "El servicio fue horrible"
-  ]
+    "Entrega atrasou muito"
+  ],
+  "lang": "pt"
 }
+
 ```
 
 Resposta:
@@ -157,9 +163,10 @@ El producto llegó tarde
 Requisição:
 
 ```
-curl -X POST "http://localhost:8000/sentiment/analyze?lang=auto" \
+curl -X POST "http://localhost:8000/sentiment/analyze?lang=pt" \
   -F "file=@comentarios.csv" \
-  --output resultado.csv
+  -o resultado.csv
+
 ```
 
 Arquivo de saída (resultado.csv)
@@ -177,11 +184,17 @@ El producto llegó tarde,es,Negativo,0.88
 
 - Técnica: TF-IDF + Logistic Regression
 
-- Treinados separadamente para PT e ES
+- Modelos treinados separadamente para PT e ES
 
-- Serializados com joblib
+- Serialização com joblib
 
-- Otimizados para baixa latência em API
+- Otimizados para:
+
+  - Baixa latência
+
+  - Execução em batch
+
+  - Uso em APIs REST
 
 ## Validações implementadas
 
@@ -189,14 +202,24 @@ El producto llegó tarde,es,Negativo,0.88
 
 - Validação da coluna text em CSV
 
-- Checagem de texto mínimo
+- Validação de texto mínimo
 
 - Tratamento de erros amigável
 
-## Escalabilidade
+Respostas consistentes
 
-- Processamento assíncrono
+## Performance
 
-- Streaming linha a linha para CSVs grandes
+- Batch prediction (vetorizado)
 
-- Arquitetura preparada para persistência e métricas
+- Streaming de CSV em chunks
+
+- Sem processamento desnecessário por linha
+
+- Ideal para arquivos grandes (>100k linhas)
+
+### Exemplo real:
+
+  - ~1 MB CSV → ~0.6–0.8 segundos
+  
+  - CPU local, sem paralelismo extra
