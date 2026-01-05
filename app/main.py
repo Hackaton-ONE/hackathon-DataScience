@@ -4,10 +4,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 import pandas as pd
 import joblib
-import re
 import io
 import asyncio
-from langdetect import detect
 
 # =========================
 # Configurações
@@ -22,13 +20,15 @@ THRESHOLDS = {
     "es": 0.488
 }
 
+DEFAULT_LANG = "pt"
+
 # =========================
 # App
 # =========================
 app = FastAPI(
     title="Sentiment Analysis API (PT + ES)",
-    description="Classificação de sentimento com suporte a JSON e CSV",
-    version="1.0.0"
+    description="API otimizada para análise de sentimento (JSON + CSV)",
+    version="1.2.0"
 )
 
 # =========================
@@ -45,53 +45,24 @@ for lang, path in MODEL_PATHS.items():
 # =========================
 # Utilidades
 # =========================
-def clean_text(text: str) -> str:
-    text = str(text).lower().strip()
-    text = re.sub(r"http\S+|www\S+", "", text)
-    text = re.sub(r"\d+", "", text)
-    return text
+def clean_text_series(series: pd.Series) -> pd.Series:
+    return series.astype(str).str.lower()
 
-def detect_language(text: str) -> str:
-    try:
-        lang = detect(text)
-        if lang.startswith("es"):
-            return "es"
-    except:
-        pass
-    return "pt"  # fallback seguro
-
-def predict(text: str, lang: Optional[str] = None):
-    text = clean_text(text)
-
-    if len(text) < 5:
-        raise ValueError("Texto muito curto")
-
-    if not lang or lang == "auto":
-        lang = detect_language(text)
-
-    model = models.get(lang)
-    if not model:
-        raise ValueError(f"Idioma '{lang}' não suportado")
-
-    prob_neg = model.predict_proba([text])[0][idx_neg[lang]]
-    label = "Negativo" if prob_neg >= THRESHOLDS[lang] else "Positivo"
-
-    return {
-        "idioma": lang,
-        "previsao": label,
-        "probabilidade": round(float(prob_neg), 4)
-    }
+def validate_lang(lang: Optional[str]) -> str:
+    if lang in models:
+        return lang
+    return DEFAULT_LANG
 
 # =========================
 # Schemas JSON
 # =========================
 class TextRequest(BaseModel):
     text: str
-    lang: Optional[str] = "auto"
+    lang: Optional[str] = DEFAULT_LANG
 
 class BatchRequest(BaseModel):
     texts: List[str]
-    lang: Optional[str] = "auto"
+    lang: Optional[str] = DEFAULT_LANG
 
 # =========================
 # Endpoint UNIFICADO
@@ -100,51 +71,50 @@ class BatchRequest(BaseModel):
 async def analyze_sentiment(
     request: Request,
     file: UploadFile = File(None),
-    lang: Optional[str] = "auto"
+    lang: Optional[str] = DEFAULT_LANG
 ):
+
+    lang = validate_lang(lang)
+
     # =====================
-    # CASO CSV (STREAMING)
+    # CASO CSV (BATCH + STREAM)
     # =====================
     if file is not None:
         if not file.filename.endswith(".csv"):
-            raise HTTPException(status_code=400, detail="Arquivo deve ser CSV")
+            raise HTTPException(400, "Arquivo deve ser CSV")
 
         df = pd.read_csv(file.file)
 
         if "text" not in df.columns:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV deve conter coluna 'text'"
-            )
+            raise HTTPException(400, "CSV deve conter coluna 'text'")
+
+        texts = clean_text_series(df["text"]).tolist()
+
+        probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
+        labels = [
+            "Negativo" if p >= THRESHOLDS[lang] else "Positivo"
+            for p in probs
+        ]
+
+        df["idioma"] = lang
+        df["previsao"] = labels
+        df["probabilidade"] = probs.round(4)
 
         async def stream_csv():
             buffer = io.StringIO()
             header_written = False
 
-            for idx, row in df.iterrows():
-                try:
-                    result = predict(row["text"], lang)
-                except ValueError:
-                    result = {
-                        "idioma": None,
-                        "previsao": "Erro",
-                        "probabilidade": None
-                    }
-
-                out_row = row.to_dict()
-                out_row.update(result)
-
-                pd.DataFrame([out_row]).to_csv(
+            for start in range(0, len(df), 500):
+                chunk = df.iloc[start:start + 500]
+                chunk.to_csv(
                     buffer,
                     index=False,
                     header=not header_written
                 )
-
                 header_written = True
                 yield buffer.getvalue()
                 buffer.seek(0)
                 buffer.truncate(0)
-
                 await asyncio.sleep(0)
 
         return StreamingResponse(
@@ -163,33 +133,35 @@ async def analyze_sentiment(
 
     # JSON single
     if "text" in data:
-        try:
-            return JSONResponse(
-                predict(data["text"], data.get("lang", lang))
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        text = data["text"].strip().lower()
+
+        if len(text) < 5:
+            raise HTTPException(400, "Texto inválido")
+
+        prob = models[lang].predict_proba([text])[0][idx_neg[lang]]
+        label = "Negativo" if prob >= THRESHOLDS[lang] else "Positivo"
+
+        return {
+            "idioma": lang,
+            "previsao": label,
+            "probabilidade": round(float(prob), 4)
+        }
 
     # JSON batch
-    if "texts" in data and isinstance(data["texts"], list):
-        results = []
-        for text in data["texts"]:
-            try:
-                results.append(predict(text, data.get("lang", lang)))
-            except ValueError:
-                results.append({
-                    "idioma": None,
-                    "previsao": "Erro",
-                    "probabilidade": None
-                })
-            await asyncio.sleep(0)
+    if "texts" in data:
+        texts = [t.lower() for t in data["texts"]]
+        probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
 
-        return JSONResponse(results)
+        return JSONResponse([
+            {
+                "idioma": lang,
+                "previsao": "Negativo" if p >= THRESHOLDS[lang] else "Positivo",
+                "probabilidade": round(float(p), 4)
+            }
+            for p in probs
+        ])
 
-    raise HTTPException(
-        status_code=400,
-        detail="Formato inválido. Envie JSON ou CSV."
-    )
+    raise HTTPException(400, "Formato inválido")
 
 # =========================
 # Health check
@@ -197,3 +169,4 @@ async def analyze_sentiment(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
