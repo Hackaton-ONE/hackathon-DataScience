@@ -100,31 +100,47 @@ async def analyze_sentiment(
         df["previsao"] = labels
         df["probabilidade"] = probs.round(4)
 
+        BATCH_SIZE = 1000
+
         async def stream_csv():
             buffer = io.StringIO()
             header_written = False
 
-            for start in range(0, len(df), 500):
-                chunk = df.iloc[start:start + 500]
+            for start in range(0, len(df), BATCH_SIZE):
+                chunk = df.iloc[start:start + BATCH_SIZE].copy()
+
+                texts = chunk["text"].astype(str).str.lower().values
+
+                probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
+
+                chunk["idioma"] = lang
+                chunk["previsao"] = [
+                    "Negativo" if p >= THRESHOLDS[lang] else "Positivo"
+                    for p in probs
+                ]
+                chunk["probabilidade"] = probs.round(4)
+
                 chunk.to_csv(
                     buffer,
                     index=False,
                     header=not header_written
                 )
+
                 header_written = True
                 yield buffer.getvalue()
+
                 buffer.seek(0)
                 buffer.truncate(0)
                 await asyncio.sleep(0)
 
-        return StreamingResponse(
-            stream_csv(),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition":
-                "attachment; filename=sentiment_resultado.csv"
-            }
-        )
+                return StreamingResponse(
+                    stream_csv(),
+                    media_type="text/csv",
+                    headers={
+                        "Content-Disposition":
+                        "attachment; filename=sentiment_resultado.csv"
+                    }
+                )
 
     # =====================
     # CASO JSON
@@ -149,7 +165,8 @@ async def analyze_sentiment(
 
     # JSON batch
     if "texts" in data:
-        texts = [t.lower() for t in data["texts"]]
+
+        texts = [t.strip().lower() for t in data["texts"] if isinstance(t, str) and len(t.strip()) >= 5]
         probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
 
         return JSONResponse([
@@ -169,4 +186,3 @@ async def analyze_sentiment(
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
