@@ -45,6 +45,9 @@ README.md # Documentação
 - FastAPI
 - scikit-learn
 - Pandas
+- Numpy
+- Matplotlib
+- Kagglehub
 - Joblib
 - Uvicorn
 - GZip Middleware (FastAPI)
