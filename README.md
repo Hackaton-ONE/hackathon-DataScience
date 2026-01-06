@@ -13,8 +13,9 @@ A aplicação classifica textos como **Positivo** ou **Negativo**, com suporte a
 - Classificação de sentimento (Positivo / Negativo)
 - Suporte multilíngue: **Português (PT)** e **Espanhol (ES)**
 - **Um único endpoint** para JSON e CSV
-- **Batch prediction** (máximo desempenho)
+- **Batch prediction vetorizado** (máximo desempenho)
 - **Streaming assíncrono** (ideal para arquivos grandes)
+- Compressão automática com GZip
 - Modelos **leves (~9 MB)** carregados **uma única vez**
 - Baixa latência e alta previsibilidade
 - Código simples, limpo e pronto para produção
@@ -46,6 +47,7 @@ README.md # Documentação
 - Pandas
 - Joblib
 - Uvicorn
+- GZip Middleware (FastAPI)
 
 ---
 
@@ -178,6 +180,8 @@ Péssimo atendimento,pt,Negativo,0.91
 El producto llegó tarde,es,Negativo,0.88
 ```
 
+O arquivo de saída é automaticamente comprimido via GZip quando suportado pelo cliente.
+
 ---
 
 ## Modelos de Machine Learning
@@ -206,13 +210,15 @@ El producto llegó tarde,es,Negativo,0.88
 
 - Tratamento de erros amigável
 
-Respostas consistentes
+- Respostas consistentes
 
 ## Performance
 
-- Batch prediction (vetorizado)
+- Uso eficiente de batch prediction
 
 - Streaming de CSV em chunks
+
+- Arquitetura simples, escalável e defendível tecnicamente
 
 - Sem processamento desnecessário por linha
 
