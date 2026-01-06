@@ -1,11 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi.middleware.gzip import GZipMiddleware
+from typing import Optional
 import pandas as pd
 import joblib
 import io
-import asyncio
 
 # =========================
 # Configurações
@@ -28,11 +27,13 @@ DEFAULT_LANG = "pt"
 app = FastAPI(
     title="Sentiment Analysis API (PT + ES)",
     description="API otimizada para análise de sentimento (JSON + CSV)",
-    version="1.2.0"
+    version="1.2.1"
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # =========================
-# Carregar modelos (1x)
+# Carregar modelos
 # =========================
 models = {}
 idx_neg = {}
@@ -43,29 +44,16 @@ for lang, path in MODEL_PATHS.items():
     idx_neg[lang] = list(model.classes_).index("Negativo")
 
 # =========================
-# Utilidades
+# Utils
 # =========================
-def clean_text_series(series: pd.Series) -> pd.Series:
-    return series.astype(str).str.lower()
-
 def validate_lang(lang: Optional[str]) -> str:
-    if lang in models:
-        return lang
-    return DEFAULT_LANG
+    return lang if lang in models else DEFAULT_LANG
+
+def clean_series(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.lower()
 
 # =========================
-# Schemas JSON
-# =========================
-class TextRequest(BaseModel):
-    text: str
-    lang: Optional[str] = DEFAULT_LANG
-
-class BatchRequest(BaseModel):
-    texts: List[str]
-    lang: Optional[str] = DEFAULT_LANG
-
-# =========================
-# Endpoint UNIFICADO
+# Endpoint
 # =========================
 @app.post("/sentiment/analyze")
 async def analyze_sentiment(
@@ -73,13 +61,12 @@ async def analyze_sentiment(
     file: UploadFile = File(None),
     lang: Optional[str] = DEFAULT_LANG
 ):
-
     lang = validate_lang(lang)
 
     # =====================
-    # CASO CSV (BATCH + STREAM)
+    # CSV
     # =====================
-    if file is not None:
+    if file:
         if not file.filename.endswith(".csv"):
             raise HTTPException(400, "Arquivo deve ser CSV")
 
@@ -88,66 +75,33 @@ async def analyze_sentiment(
         if "text" not in df.columns:
             raise HTTPException(400, "CSV deve conter coluna 'text'")
 
-        texts = clean_text_series(df["text"]).tolist()
+        texts = clean_series(df["text"]).tolist()
 
         probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
-        labels = [
-            "Negativo" if p >= THRESHOLDS[lang] else "Positivo"
-            for p in probs
-        ]
 
         df["idioma"] = lang
-        df["previsao"] = labels
+        df["previsao"] = ["Negativo" if p >= THRESHOLDS[lang] else "Positivo" for p in probs]
         df["probabilidade"] = probs.round(4)
 
-        BATCH_SIZE = 1000
-
-        async def stream_csv():
+        def stream_csv():
             buffer = io.StringIO()
-            header_written = False
+            df.to_csv(buffer, index=False)
+            buffer.seek(0)
+            yield buffer.read()
 
-            for start in range(0, len(df), BATCH_SIZE):
-                chunk = df.iloc[start:start + BATCH_SIZE].copy()
-
-                texts = chunk["text"].astype(str).str.lower().values
-
-                probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
-
-                chunk["idioma"] = lang
-                chunk["previsao"] = [
-                    "Negativo" if p >= THRESHOLDS[lang] else "Positivo"
-                    for p in probs
-                ]
-                chunk["probabilidade"] = probs.round(4)
-
-                chunk.to_csv(
-                    buffer,
-                    index=False,
-                    header=not header_written
-                )
-
-                header_written = True
-                yield buffer.getvalue()
-
-                buffer.seek(0)
-                buffer.truncate(0)
-                await asyncio.sleep(0)
-
-                return StreamingResponse(
-                    stream_csv(),
-                    media_type="text/csv",
-                    headers={
-                        "Content-Disposition":
-                        "attachment; filename=sentiment_resultado.csv"
-                    }
-                )
+        return StreamingResponse(
+            stream_csv(),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=sentiment_resultado.csv"
+            }
+        )
 
     # =====================
-    # CASO JSON
+    # JSON
     # =====================
     data = await request.json()
 
-    # JSON single
     if "text" in data:
         text = data["text"].strip().lower()
 
@@ -155,18 +109,15 @@ async def analyze_sentiment(
             raise HTTPException(400, "Texto inválido")
 
         prob = models[lang].predict_proba([text])[0][idx_neg[lang]]
-        label = "Negativo" if prob >= THRESHOLDS[lang] else "Positivo"
 
         return {
             "idioma": lang,
-            "previsao": label,
+            "previsao": "Negativo" if prob >= THRESHOLDS[lang] else "Positivo",
             "probabilidade": round(float(prob), 4)
         }
 
-    # JSON batch
     if "texts" in data:
-
-        texts = [t.strip().lower() for t in data["texts"] if isinstance(t, str) and len(t.strip()) >= 5]
+        texts = [t.strip().lower() for t in data["texts"] if isinstance(t, str)]
         probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
 
         return JSONResponse([
@@ -181,7 +132,7 @@ async def analyze_sentiment(
     raise HTTPException(400, "Formato inválido")
 
 # =========================
-# Health check
+# Health
 # =========================
 @app.get("/health")
 def health():
