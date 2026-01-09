@@ -54,7 +54,7 @@ README.md # Documentação
 
 ---
 
-## ⚙️ Instalação e execução
+## Instalação e execução
 
 ### Clonar o repositório
 
