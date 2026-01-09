@@ -8,16 +8,16 @@
 
 ## Índice:
 
-- [Visão Geral](#-visão-geral)
-  - [Principais Diferenciais](#-principais-diferenciais)
-- [Benchmark de Performance](#-benchmark-de-performance)
-- [Stack Tecnológico](#-stack-tecnológico)
-- [Instalação e Execução](#-instalação-e-execução)
-- [Endpoints e Exemplos](#-endpoints)
-  - [JSON (Single)](#a-json-texto-único---ideal-para-chatbots)
+- [Visão Geral](#visão-geral)
+  - [Principais Diferenciais](#principais-diferenciais)
+- [Benchmark de Performance](#benchmark-de-performance)
+- [Stack Tecnológico](#stack-tecnológico)
+- [Instalação e Execução](#instalação-e-execução)
+- [Endpoint](#endpoint)
+  - [JSON (Single)](#a-json-texto-únicosingle---ideal-para-chatbots)
   - [JSON (Batch)](#b-json-batch---lista-de-textos)
   - [CSV (Streaming / cURL)](#c-arquivo-csv-big-data--bi)
-- [Decisões de Arquitetura](#-decisões-de-arquitetura)
+- [Decisões de Arquitetura](#decisões-de-arquitetura)
 
 ---
 
