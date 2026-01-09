@@ -1,14 +1,16 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
+from functools import lru_cache
 from typing import Optional
 import pandas as pd
+import json
 import joblib
-import io
+import shutil
+import tempfile
+import os
 
-# =========================
-# Configurações
-# =========================
+# --- Configurações ---
 MODEL_PATHS = {
     "pt": "model/sentiment_pt.joblib",
     "es": "model/sentiment_es.joblib"
@@ -21,40 +23,95 @@ THRESHOLDS = {
 
 DEFAULT_LANG = "pt"
 
-# =========================
-# App
-# =========================
+# --- App e Middleware ---
 app = FastAPI(
     title="Sentiment Analysis API (PT + ES)",
-    description="API otimizada para análise de sentimento (JSON + CSV)",
-    version="1.2.1"
+    description="API otimizada para análise de sentimento (JSON + CSV) com Cache e Streaming",
+    version="1.3.2"
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# =========================
-# Carregar modelos
-# =========================
+# --- Carregar Modelos (Global) ---
 models = {}
 idx_neg = {}
 
+print("Carregando modelos...")
 for lang, path in MODEL_PATHS.items():
-    model = joblib.load(path)
-    models[lang] = model
-    idx_neg[lang] = list(model.classes_).index("Negativo")
+    try:
+        model = joblib.load(path)
+        models[lang] = model
+        idx_neg[lang] = list(model.classes_).index("Negativo")
+        print(f"Modelo {lang} carregado.")
+    except Exception as e:
+        print(f"Erro ao carregar modelo {lang}: {e}")
 
-# =========================
-# Utils
-# =========================
+# --- Utils e Lógica de Negócio ---
+
 def validate_lang(lang: Optional[str]) -> str:
-    return lang if lang in models else DEFAULT_LANG
+    if lang and lang.lower() in models:
+        return lang.lower()
+    return DEFAULT_LANG
+
+def clean_text(text: str) -> str:
+    return str(text).strip().lower()
 
 def clean_series(s: pd.Series) -> pd.Series:
     return s.astype(str).str.lower()
 
-# =========================
-# Endpoint
-# =========================
+# --- Cache para Predições Únicas ---
+@lru_cache(maxsize=10000)
+def predict_cached(text: str, lang: str):
+    prob = models[lang].predict_proba([text])[0][idx_neg[lang]]
+    return prob
+
+# --- Gerador para Streaming de CSV (COM LIMPEZA DE COLUNAS) ---
+def process_csv_in_chunks(file_path: str, lang: str, chunk_size=5000):
+    first_chunk = True
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            iterator = pd.read_csv(
+                f, 
+                chunksize=chunk_size, 
+                sep=None,      
+                engine='python', 
+                on_bad_lines='skip' 
+            )
+
+            for chunk in iterator:
+                chunk.columns = [c.strip().lower() for c in chunk.columns]
+
+                text_cols = [c for c in chunk.columns if "text" in c]
+                if not text_cols:
+                    print("ERRO: Nenhuma coluna de texto encontrada.")
+                    break
+                
+                main_text_col = text_cols[0]
+                texts = clean_series(chunk[main_text_col]).tolist()
+                
+                if not texts:
+                    continue
+
+                probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
+
+                out_df = pd.DataFrame()
+                out_df["text"] = chunk[main_text_col]
+                out_df["idioma"] = lang
+                out_df["previsao"] = ["Negativo" if p >= THRESHOLDS[lang] else "Positivo" for p in probs]
+                out_df["probabilidade"] = probs.round(4)
+                
+                yield out_df.to_csv(header=first_chunk, index=False)
+                first_chunk = False
+
+    except Exception as e:
+        print(f"ERRO NO STREAMING: {e}")
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Arquivo temporário removido: {file_path}")
+
+# --- Endpoint Principal ---
 @app.post("/sentiment/analyze")
 async def analyze_sentiment(
     request: Request,
@@ -62,53 +119,56 @@ async def analyze_sentiment(
     lang: Optional[str] = DEFAULT_LANG
 ):
     lang = validate_lang(lang)
+    data = None
 
-    # =====================
-    # CSV
-    # =====================
+    # --- LÓGICA DE ARQUIVO (UPLOAD) ---
     if file:
-        if not file.filename.endswith(".csv"):
-            raise HTTPException(400, "Arquivo deve ser CSV")
+        filename = file.filename.lower()
 
-        df = pd.read_csv(file.file)
+        if filename.endswith(".csv"):
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+                    shutil.copyfileobj(file.file, tmp)
+                    tmp_path = tmp.name
+            except Exception as e:
+                 raise HTTPException(500, f"Erro ao salvar arquivo temporário: {e}")
+            
+            return StreamingResponse(
+                process_csv_in_chunks(tmp_path, lang),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=sentiment_resultado.csv"}
+            )
 
-        if "text" not in df.columns:
-            raise HTTPException(400, "CSV deve conter coluna 'text'")
+        elif filename.endswith(".json"):
+            try:
+                content = await file.read()
+                data = json.loads(content)
+            except Exception as e:
+                raise HTTPException(400, f"Arquivo JSON inválido ou corrompido: {e}")
 
-        texts = clean_series(df["text"]).tolist()
+        else:
+            raise HTTPException(400, "O arquivo deve ser .csv ou .json.")
 
-        probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
+    # --- LÓGICA DE BODY (RAW JSON) ---
+    if data is None:
+        try:
+            body = await request.json()
+            data = body
+        except Exception:
+            pass
 
-        df["idioma"] = lang
-        df["previsao"] = ["Negativo" if p >= THRESHOLDS[lang] else "Positivo" for p in probs]
-        df["probabilidade"] = probs.round(4)
+    # --- VALIDAÇÃO FINAL ---
+    if data is None:
+        raise HTTPException(400, "Envie um arquivo CSV/JSON ou um JSON válido no corpo.")
 
-        def stream_csv():
-            buffer = io.StringIO()
-            df.to_csv(buffer, index=False)
-            buffer.seek(0)
-            yield buffer.read()
-
-        return StreamingResponse(
-            stream_csv(),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; filename=sentiment_resultado.csv"
-            }
-        )
-
-    # =====================
-    # JSON
-    # =====================
-    data = await request.json()
-
+    # --- PROCESSAMENTO DO JSON (TEXT ou TEXTS) ---
+    
     if "text" in data:
-        text = data["text"].strip().lower()
-
-        if len(text) < 5:
-            raise HTTPException(400, "Texto inválido")
-
-        prob = models[lang].predict_proba([text])[0][idx_neg[lang]]
+        text = clean_text(data["text"])
+        if len(text) < 2:
+            raise HTTPException(400, "Texto muito curto.")
+        
+        prob = predict_cached(text, lang)
 
         return {
             "idioma": lang,
@@ -117,23 +177,30 @@ async def analyze_sentiment(
         }
 
     if "texts" in data:
-        texts = [t.strip().lower() for t in data["texts"] if isinstance(t, str)]
+        raw_texts = data["texts"]
+        if not isinstance(raw_texts, list):
+             raise HTTPException(400, "'texts' deve ser uma lista.")
+
+        texts = [clean_text(t) for t in raw_texts if isinstance(t, str)]
+        
+        if not texts:
+            return JSONResponse([])
+
         probs = models[lang].predict_proba(texts)[:, idx_neg[lang]]
 
-        return JSONResponse([
-            {
+        results = []
+        for p in probs:
+            results.append({
                 "idioma": lang,
                 "previsao": "Negativo" if p >= THRESHOLDS[lang] else "Positivo",
                 "probabilidade": round(float(p), 4)
-            }
-            for p in probs
-        ])
+            })
+            
+        return JSONResponse(results)
 
-    raise HTTPException(400, "Formato inválido")
+    raise HTTPException(400, "JSON deve conter campo 'text' ou 'texts'.")
 
-# =========================
-# Health
-# =========================
+# --- Health Check ---
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "models_loaded": list(models.keys())}
