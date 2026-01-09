@@ -182,8 +182,8 @@ curl -X POST "http://localhost:8000/sentiment/analyze?lang=pt" \
 
 ```Snippet de código
 text,idioma,previsao,probabilidade
-"Adorei o produto",pt,Positivo,0.98
-"Péssimo serviço",pt,Negativo,0.92
+"Adorei o produto",pt,Positivo,0.9874
+"Péssimo serviço",pt,Negativo,0.9289
 ```
 
 ---
