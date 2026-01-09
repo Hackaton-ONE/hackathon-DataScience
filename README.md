@@ -101,6 +101,8 @@ O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 
 ### A. JSON (Texto Único/Single - Ideal para Chatbots)
 
+**Requisição:**
+
 ```JSON
 // Request
 {
@@ -121,6 +123,8 @@ O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 ```
 
 ### B. JSON (Batch - Lista de Textos)
+
+**Requisição:**
 
 ```JSON
 // Request
@@ -164,6 +168,8 @@ O arquivo é processado via streaming e o download inicia imediatamente.
 
 ## Exemplo via cURL:
 
+**Requisição:**
+
 ```Bash
 curl -X POST "http://localhost:8000/sentiment/analyze?lang=pt" \
   -F "file=@meu_dataset_gigante.csv" \
@@ -171,6 +177,8 @@ curl -X POST "http://localhost:8000/sentiment/analyze?lang=pt" \
 ```
 
 **Formato do CSV de Saída:** A API limpa automaticamente colunas duplicadas e retorna um CSV enxuto:
+
+**Resposta:**
 
 ```Snippet de código
 text,idioma,previsao,probabilidade
