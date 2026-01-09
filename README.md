@@ -9,15 +9,14 @@
 ## Índice:
 
 - [Visão Geral](#-visão-geral)
-- [Principais Diferenciais](#-principais-diferenciais)
+  - [Principais Diferenciais](#-principais-diferenciais)
 - [Benchmark de Performance](#-benchmark-de-performance)
 - [Stack Tecnológico](#-stack-tecnológico)
 - [Instalação e Execução](#-instalação-e-execução)
-- [Executar a API](#-executar-a-api)
-- [Endpoint](#-endpoint)
-- [Exemplos de uso](#-exemplos-de-uso)
-- [Instalação e Execução](#-instalação-e-execução)
-- [Exemplo via cURL](#-exemplo-via-curl)
+- [Endpoints e Exemplos](#-endpoints)
+  - [JSON (Single)](#a-json-texto-único---ideal-para-chatbots)
+  - [JSON (Batch)](#b-json-batch---lista-de-textos)
+  - [CSV (Streaming / cURL)](#c-arquivo-csv-big-data--bi)
 - [Decisões de Arquitetura](#-decisões-de-arquitetura)
 
 ---
