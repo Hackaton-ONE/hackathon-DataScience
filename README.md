@@ -64,7 +64,7 @@ Testes de carga realizados em ambiente local (CPU padrão):
 
 ## Instalação e Execução
 
-### 1. Setup
+### Setup
 
 ```bash
 # Clonar o repositório
