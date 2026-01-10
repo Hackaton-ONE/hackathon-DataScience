@@ -4,6 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from functools import lru_cache
 from typing import Optional
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 import json
 import joblib
 import shutil
@@ -82,12 +83,21 @@ def process_csv_in_chunks(file_path: str, lang: str, chunk_size=5000):
             for chunk in iterator:
                 chunk.columns = [c.strip().lower() for c in chunk.columns]
 
-                text_cols = [c for c in chunk.columns if "text" in c]
-                if not text_cols:
-                    print("ERRO: Nenhuma coluna de texto encontrada.")
-                    break
+                main_text_col = None
+
+                if not main_text_col:
+                    for col in chunk.columns:
+                        if is_numeric_dtype(chunk[col]):
+                            continue
+                        
+                        avg_len = chunk[col].astype(str).str.len().mean()
+                        if avg_len > 20:
+                            main_text_col = col
+                            break
                 
-                main_text_col = text_cols[0]
+                if not main_text_col:
+                    main_text_col = chunk.columns[0]
+
                 texts = clean_series(chunk[main_text_col]).tolist()
                 
                 if not texts:
