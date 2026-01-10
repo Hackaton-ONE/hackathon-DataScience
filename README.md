@@ -44,6 +44,7 @@ Testes de carga realizados em ambiente local (CPU padrão):
 
 | Carga (Linhas) | Tamanho (CSV) | Tempo Total | Throughput (Req/s) |
 | :--- | :--- | :--- | :--- |
+| **10.000** | ~2.8 MB | 2.7 segundos | **~3.700** |
 | **50.000** | ~14 MB | 3.6 segundos | **~13.800** |
 | **100.000** | ~28 MB | 6.9 segundos | **~14.500** |
 
