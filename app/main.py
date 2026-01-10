@@ -28,7 +28,7 @@ DEFAULT_LANG = "pt"
 app = FastAPI(
     title="Sentiment Analysis API (PT + ES)",
     description="API otimizada para análise de sentimento (JSON + CSV) com Cache e Streaming",
-    version="1.3.2"
+    version="1.3.3"
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -214,3 +214,4 @@ async def analyze_sentiment(
 @app.get("/health")
 def health():
     return {"status": "ok", "models_loaded": list(models.keys())}
+
