@@ -191,10 +191,15 @@ text,idioma,previsao,probabilidade
 
 ## Decisões de Arquitetura
 
-1 - **Vetorização vs Loops:** Utilizamos `model.predict_proba(lista_inteira)` ao invés de iterar linha por linha.
+1. - **Vetorização vs Loops:** Utilizamos `model.predict_proba(lista_inteira)` ao invés de iterar linha por linha.
   Isso delega o cálculo matemático para as bibliotecas em C (NumPy/BLAS), acelerando o processo em até 100x.
 
-2 - **Streaming & Generators:** Para CSVs, utilizamos Python Generators (`yield`).
+2. - **Streaming & Generators:** Para CSVs, utilizamos Python Generators (`yield`).
   A API lê blocos de 5.000 linhas, processa, devolve e limpa da memória. Isso impede erros de Out of Memory (OOM).
   
-3 - **IO Bound Optimization:** O uso de arquivos temporários e leitura otimizada (`chunksize`) garante que a CPU nunca fique ociosa esperando leitura de disco.
+3. - **IO Bound Optimization:** O uso de arquivos temporários e leitura otimizada (`chunksize`) garante que a CPU nunca fique ociosa esperando leitura de disco.
+
+4. - **Smart Column Detection (Heurística):**
+   Sabemos que datasets reais são bagunçados. Implementamos uma `heurística` que, na ausência de cabeçalhos padrão,
+  varre o arquivo em busca de colunas não-numéricas com média de caracteres > 20.
+  Isso permite processar CSVs "sujos" ou sem padronização sem quebrar a pipeline.
