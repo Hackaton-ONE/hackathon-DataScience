@@ -199,7 +199,8 @@ text,idioma,previsao,probabilidade
   
 3. - **IO Bound Optimization:** O uso de arquivos temporários e leitura otimizada (`chunksize`) garante que a CPU nunca fique ociosa esperando leitura de disco.
 
-4. - **Smart Column Detection (Heurística):**
-   Sabemos que datasets reais são bagunçados. Implementamos uma `heurística` que, na ausência de cabeçalhos padrão,
-  varre o arquivo em busca de colunas não-numéricas com média de caracteres > 20.
-  Isso permite processar CSVs "sujos" ou sem padronização sem quebrar a pipeline.
+4. - **Smart Column Detection (Estatístico):**
+     Para garantir robustez total, eliminamos a dependência de nomes de cabeçalhos (que podem estar errados ou em outros idiomas).
+     O sistema realiza uma **análise estatística do conteúdo** em tempo real: calcula a média de caracteres das colunas não-numéricas do bloco.
+     Se a média for > 20 caracteres, a coluna é automaticamente identificada como o texto a ser analisado.
+     Isso torna a API imune a CSVs mal formatados ou com cabeçalhos enganosos.
