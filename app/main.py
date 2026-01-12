@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from functools import lru_cache
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union, List, Any
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 import json
@@ -18,8 +18,8 @@ MODEL_PATHS = {
 }
 
 THRESHOLDS = {
-    "pt": 0.624,
-    "es": 0.488
+    "pt": 0.624486,
+    "es": 0.488833
 }
 
 DEFAULT_LANG = "pt"
@@ -28,7 +28,7 @@ DEFAULT_LANG = "pt"
 app = FastAPI(
     title="Sentiment Analysis API (PT + ES)",
     description="API otimizada para análise de sentimento (JSON + CSV) com Cache e Streaming",
-    version="1.4.1"
+    version="1.4.2"
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -257,3 +257,4 @@ async def analyze_sentiment(
 @app.get("/health")
 def health():
     return {"status": "ok", "models_loaded": list(models.keys())}
+
