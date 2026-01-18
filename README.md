@@ -13,21 +13,18 @@
 - [Benchmark de Performance](#benchmark-de-performance)
 - [Stack Tecnológico](#stack-tecnológico)
 - [Instalação e Execução](#instalação-e-execução)
-- [Endpoint](#endpoint)
-  - [JSON (Single)](#a-json-texto-únicosingle---ideal-para-chatbots)
-  - [JSON (Batch)](#b-json-batch---lista-de-textos)
-  - [CSV (Streaming / cURL)](#c-arquivo-csv-big-data--bi)
+- [Endpoints e Exemplos](#endpoints-e-exemplos)
 - [Decisões de Arquitetura](#decisões-de-arquitetura)
 
 ---
 
-## Visão Geral
+## 🔭 Visão Geral
 
 Esta aplicação foi desenhada para resolver o gargalo comum em deploy de modelos de ML: **latência e escalabilidade**.
 
 Diferente de abordagens tradicionais (loops linha-a-linha), esta API utiliza **processamento vetorial em lote**, **streaming de dados** e **cache em memória**, permitindo a análise de arquivos gigantescos com consumo mínimo de memória RAM e latência baixíssima.
 
-## Principais Diferenciais
+### ✨ Principais Diferenciais
 
 * **Dual Language:** Suporte nativo a Português (PT) e Espanhol (ES).
 * **True Streaming:** Processa arquivos CSV muito maiores que a memória RAM disponível (leitura em *chunks*).
@@ -38,7 +35,7 @@ Diferente de abordagens tradicionais (loops linha-a-linha), esta API utiliza **p
 
 ---
 
-## Benchmark de Performance
+## ⚡ Benchmark de Performance
 
 Testes de carga realizados em ambiente local (CPU padrão):
 
@@ -52,37 +49,38 @@ Testes de carga realizados em ambiente local (CPU padrão):
 
 ---
 
-## Stack Tecnológico
+## 🛠️ Stack Tecnológico
 
 * **Python 3.11+**
 * **FastAPI** (High-performance web framework)
 * **Scikit-Learn** (Inferência Vetorizada)
 * **Pandas** (Manipulação eficiente de dados)
 * **Joblib** (Serialização de Modelos)
+* **Uvicorn** (Servidor ASGI)
 
 ---
 
-## Instalação e Execução
+## ▶️ Instalação e Execução
 
 ### Setup
 
 ```bash
-# Clonar o repositório
-git clone [https://github.com/Hackaton-ONE/hackathon-DataScience.git](https://github.com/Hackaton-ONE/hackathon-DataScience.git)
+# 1. Clonar o repositório
+git clone https://github.com/Hackaton-ONE/hackathon-DataScience.git
 cd hackathon-DataScience/api
 
-# Criar ambiente virtual
+# 2. Criar ambiente virtual
 python -m venv venv
 
-# Ativar (Windows)
+# 3. Ativar (Windows)
 venv\Scripts\activate
 # Ativar (Linux/Mac)
 source venv/bin/activate
 
-# Instalar dependências otimizadas
+# 4. Instalar dependências otimizadas
 pip install -r requirements.txt
 ```
-## Executar a API
+## Executar a API Localmente
 ```
 uvicorn main:app --reload
 ```
@@ -98,14 +96,12 @@ Ponto único de entrada que aceita tanto JSON quanto Arquivos CSV.
 
 O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 
-### Exemplos de uso:
 
 ### A. JSON (Texto Único/Single - Ideal para Chatbots)
 
 **Requisição:**
 
 ```JSON
-// Request
 {
   "text": "O atendimento foi excelente e a entrega rápida!",
   "lang": "pt"
@@ -115,7 +111,6 @@ O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 **Resposta:**
 
 ```JSON
-// Response
 {
   "idioma": "pt",
   "previsao": "Positivo",
@@ -128,7 +123,6 @@ O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 **Requisição:**
 
 ```JSON
-// Request
 {
   "texts": ["Adorei o produto", "Demorou muito", "Qualidade média"]
 }
@@ -137,26 +131,23 @@ O idioma padrão é `pt`, mas pode ser alterado via query param `?lang=es`.
 **Resposta:**
 
 ```JSON
-// Response
-{
 [
   {
-    "idioma":"pt",
-    "previsao":"Positivo",
-    "probabilidade":0.1698
+    "idioma": "pt",
+    "previsao": "Positivo",
+    "probabilidade": 0.9120
   },
-    {
-      "idioma":"pt",
-      "previsao":"Positivo",
-      "probabilidade":0.537
-    },
-    {
-      "idioma":"pt",
-      "previsao":"Positivo",
-      "probabilidade":0.2081
-    }
+  {
+    "idioma": "pt",
+    "previsao": "Negativo",
+    "probabilidade": 0.8530
+  },
+  {
+    "idioma": "pt",
+    "previsao": "Negativo",
+    "probabilidade": 0.6015
+  }
 ]
-}
 ```
 
 ---
@@ -191,15 +182,15 @@ text,idioma,previsao,probabilidade
 
 ## Decisões de Arquitetura
 
-1. - **Vetorização vs Loops:** Utilizamos `model.predict_proba(lista_inteira)` ao invés de iterar linha por linha.
+1. **Vetorização vs Loops:** Utilizamos `model.predict_proba(lista_inteira)` ao invés de iterar linha por linha.
   Isso delega o cálculo matemático para as bibliotecas em C (NumPy/BLAS), acelerando o processo em até 100x.
 
-2. - **Streaming & Generators:** Para CSVs, utilizamos Python Generators (`yield`).
+2. **Streaming & Generators:** Para CSVs, utilizamos Python Generators (`yield`).
   A API lê blocos de 5.000 linhas, processa, devolve e limpa da memória. Isso impede erros de Out of Memory (OOM).
   
-3. - **IO Bound Optimization:** O uso de arquivos temporários e leitura otimizada (`chunksize`) garante que a CPU nunca fique ociosa esperando leitura de disco.
+3. **IO Bound Optimization:** O uso de arquivos temporários e leitura otimizada (`chunksize`) garante que a CPU nunca fique ociosa esperando leitura de disco.
 
-4. - **Smart Column Detection:**
+4. **Smart Column Detection:**
      Para garantir robustez total, eliminamos a dependência de nomes de cabeçalhos (que podem estar errados ou em outros idiomas).
      O sistema realiza uma **análise estatística do conteúdo** em tempo real: calcula a média de caracteres das colunas não-numéricas do bloco.
      Se a média for > 20 caracteres, a coluna é automaticamente identificada como o texto a ser analisado.
