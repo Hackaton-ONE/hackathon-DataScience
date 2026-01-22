@@ -10,9 +10,8 @@ import joblib
 import shutil
 import tempfile
 import os
-import uvicorn
 
-# --- Configuracoes ---
+# --- Configurações ---
 MODEL_PATHS = {
     "pt": "model/sentiment_pt.joblib",
     "es": "model/sentiment_es.joblib"
@@ -48,7 +47,7 @@ for lang, path in MODEL_PATHS.items():
     except Exception as e:
         print(f"Erro ao carregar modelo {lang}: {e}")
 
-# --- Utils e Logica de Negocio ---
+# --- Utils e Lógica de Negócio ---
 
 def validate_lang(lang: Optional[str]) -> str:
     if lang and lang.lower() in models:
@@ -61,31 +60,31 @@ def clean_text(text: str) -> str:
 def clean_series(s: pd.Series) -> pd.Series:
     return s.astype(str).str.lower()
 
-# --- Cache para Predicoes Unicas ---
+# --- Cache para Predições Únicas ---
 @lru_cache(maxsize=10000)
 def predict_cached(text: str, lang: str):
     prob = models[lang].predict_proba([text])[0][idx_neg[lang]]
     return prob
 
-# --- Logica de Extracao de Texto (Padrao + Fallback de Conteudo) ---
+# --- Lógica de Extração de Texto (Padrão + Fallback de Conteúdo) ---
 def extract_text_from_json(data: Any) -> Union[str, List[str], None]:
     """
     1. Prioriza chaves oficiais ('text', 'texts').
-    2. Fallback: Procura por CONTEUDO (string > 5 chars) ignorando o nome da chave.
+    2. Fallback: Procura por CONTEÚDO (string > 5 chars) ignorando o nome da chave.
     """
     
-    # --- Caso 1: Dicionario Unico ---
+    # --- Caso 1: Dicionário Único ---
     if isinstance(data, dict):
-        # --- A. Prioridade Absoluta (Padrao da API) ---
+        # --- A. Prioridade Absoluta (Padrão da API) ---
         if "text" in data and isinstance(data["text"], str):
             return data["text"]
         if "texts" in data and isinstance(data["texts"], list):
             return data["texts"]
 
-        # --- B. Fallback Inteligente (Busca por CONTEUDO) ---
-        # --- Se nao achou 'text'/'texts', pega o primeiro campo que parece um texto util. ---
+        # --- B. Fallback Inteligente (Busca por CONTEÚDO) ---
+        # --- Se não achou 'text'/'texts', pega o primeiro campo que parece um texto útil. ---
         for k, v in data.items():
-            # --- Se for string longa (> 5 chars), assume que e o texto ---
+            # --- Se for string longa (> 5 chars), assume que é o texto ---
             if isinstance(v, str) and len(v) > 5:
                 return v
             #  --- Se for lista de strings ---
@@ -128,22 +127,22 @@ def process_csv_in_chunks(file_path: str, lang: str, chunk_size=5000):
                 chunk.columns = [c.strip().lower() for c in chunk.columns]
                 main_text_col = None
                 
-                # --- LOGICA PURAMENTE MATEMATICA ---
+                # --- LÓGICA PURAMENTE MATEMÁTICA ---
                 
                 for col in chunk.columns:
-                    # --- 1. Ignora colunas numericas (IDs, Preços) ---
+                    # --- 1. Ignora colunas numéricas (IDs, Preços) ---
                     if is_numeric_dtype(chunk[col]): 
                         continue
                     
-                    # --- 2. Calcula a media de caracteres da coluna inteira ---
+                    # --- 2. Calcula a média de caracteres da coluna inteira ---
                     avg_len = chunk[col].astype(str).str.len().mean()
                     
-                    # --- 3. Se a media for maior que 20, assumimos que e o texto ---
+                    # --- 3. Se a média for maior que 20, assumimos que é o texto ---
                     if avg_len > 20:
                         main_text_col = col
                         break
                 
-                # --- Fallback: Se nenhuma coluna tiver media > 20, pega a primeira ---
+                # --- Fallback: Se nenhuma coluna tiver média > 20, pega a primeira ---
                 if not main_text_col: 
                     main_text_col = chunk.columns[0]
 
@@ -210,7 +209,7 @@ async def analyze_sentiment(
         except Exception:
             pass
 
-    # --- VALIDACAO ---
+    # --- VALIDAÇÃO ---
     if json_payload is None:
         raise HTTPException(400, "Envie um arquivo CSV/JSON ou um JSON válido no corpo.")
 
@@ -220,7 +219,7 @@ async def analyze_sentiment(
     if extracted_data is None:
          raise HTTPException(400, "JSON inválido. Use 'text', 'texts' ou um campo com texto longo.")
 
-    # --- A. Texto Unico (String) ---
+    # --- A. Texto Único (String) ---
     if isinstance(extracted_data, str):
         text = clean_text(extracted_data)
         if len(text) < 2:
@@ -259,7 +258,3 @@ async def analyze_sentiment(
 def health():
     return {"status": "ok", "models_loaded": list(models.keys())}
 
-# --- INICIALIZACAO ---
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
