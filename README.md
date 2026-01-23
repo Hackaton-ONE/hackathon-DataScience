@@ -25,8 +25,6 @@
   - [8. Amostragem Balanceada](#8-amostragem-balanceada)
   - [9. Modelo Binário](#9-modelo-binário)
 - [Resultados](#resultados)
-- [Contribuindo](#contribuindo)
-- [Licença](#licença)
 
 ---
 
